@@ -6,7 +6,7 @@ repository = "https://github.com/Lokathor/easycurses-rs"
 readme = "README.md"
 keywords = ["curses", "tui"]
 description = "A crate that makes working with curses easy."
-license = "0BSD"
+license = "Zlib"
 
 [dependencies]
 pancurses = "0.16"
