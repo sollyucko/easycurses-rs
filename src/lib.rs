@@ -259,6 +259,14 @@ fn to_bool(curses_bool: i32) -> bool {
   curses_bool == pancurses::OK
 }
 
+fn to_option(curses_bool: i32) -> Option<()> {
+  if to_bool(curses_bool) {
+    Some(())
+  } else {
+    None
+  }
+}
+
 /// This is a handle to all your fun curses functionality.
 ///
 /// `EasyCurses` will automatically restore the terminal when you drop it, so
@@ -268,9 +276,9 @@ fn to_bool(curses_bool: i32) -> bool {
 /// while curses is active, or your terminal session will just be ruined.
 ///
 /// Except in the case of [`is_color_terminal`], all `EasyCurses` methods that
-/// return a `bool` use it to indicate if the requested operation was successful
+/// return a `Option<()>` use it to indicate if the requested operation was successful
 /// or not. Unfortunately, the curses library doesn't provide any more info than
-/// that, so a `bool` is all you get.
+/// that, so a `Option<()>` is all you get.
 ///
 /// [`is_color_terminal`]: #method.is_color_terminal
 #[derive(Debug)]
