@@ -439,8 +439,8 @@ impl EasyCurses {
   /// See also the [Input
   /// Mode](http://pubs.opengroup.org/onlinepubs/7908799/xcurses/intov.html#tag_001_005_002)
   /// section of the curses documentation.
-  pub fn set_input_mode(&mut self, mode: InputMode) -> bool {
-    to_bool(match mode {
+  pub fn set_input_mode(&mut self, mode: InputMode) -> Option<()> {
+    to_option(match mode {
       InputMode::Character => pancurses::cbreak(),
       InputMode::Cooked => pancurses::nocbreak(),
       InputMode::RawCharacter => pancurses::raw(),
@@ -471,15 +471,15 @@ impl EasyCurses {
   /// keys. This defaults to `false`. You probably want to set it to `true`.
   /// If it's not on and the user presses a special key then get_key will
   /// return will do nothing or give `ERR`.
-  pub fn set_keypad_enabled(&mut self, use_keypad: bool) -> bool {
-    to_bool(self.win.keypad(use_keypad))
+  pub fn set_keypad_enabled(&mut self, use_keypad: bool) -> Option<()> {
+    to_option(self.win.keypad(use_keypad))
   }
 
   /// Enables or disables the automatic echoing of input into the window as
   /// the user types. Default to on, but you probably want it to be off most
   /// of the time.
-  pub fn set_echo(&mut self, echoing: bool) -> bool {
-    to_bool(if echoing { pancurses::echo() } else { pancurses::noecho() })
+  pub fn set_echo(&mut self, echoing: bool) -> Option<()> {
+    to_option(if echoing { pancurses::echo() } else { pancurses::noecho() })
   }
 
   // TODO: pancurses::resize_term?
@@ -499,8 +499,8 @@ impl EasyCurses {
   }
 
   /// Enables or disables bold text for all future input.
-  pub fn set_bold(&mut self, bold_on: bool) -> bool {
-    to_bool(if bold_on {
+  pub fn set_bold(&mut self, bold_on: bool) -> Option<()> {
+    to_option(if bold_on {
       self.win.attron(pancurses::Attribute::Bold)
     } else {
       self.win.attroff(pancurses::Attribute::Bold)
@@ -508,8 +508,8 @@ impl EasyCurses {
   }
 
   /// Enables or disables underlined text for all future input.
-  pub fn set_underline(&mut self, underline_on: bool) -> bool {
-    to_bool(if underline_on {
+  pub fn set_underline(&mut self, underline_on: bool) -> Option<()> {
+    to_option(if underline_on {
       self.win.attron(pancurses::Attribute::Underline)
     } else {
       self.win.attroff(pancurses::Attribute::Underline)
@@ -552,8 +552,8 @@ impl EasyCurses {
   /// the top left ("notepad" space). Does not move the terminal's displayed
   /// cursor (if any) until `refresh` is also called. Out of bounds locations
   /// cause this command to be ignored.
-  pub fn move_rc(&mut self, row: i32, col: i32) -> bool {
-    to_bool(self.win.mv(row, col))
+  pub fn move_rc(&mut self, row: i32, col: i32) -> Option<()> {
+    to_option(self.win.mv(row, col))
   }
 
   /// Obtains the cursor's current position using `(R,C)` coordinates
@@ -566,9 +566,9 @@ impl EasyCurses {
   /// bottom left ("cartesian" space). Does not move the terminal's displayed
   /// cursor (if any) until `refresh` is also called. Out of bounds locations
   /// cause this command to be ignored.
-  pub fn move_xy(&mut self, x: i32, y: i32) -> bool {
+  pub fn move_xy(&mut self, x: i32, y: i32) -> Option<()> {
     let row_count = self.win.get_max_y();
-    to_bool(self.win.mv(row_count - (y + 1), x))
+    to_option(self.win.mv(row_count - (y + 1), x))
   }
 
   /// Obtains the cursor's current position using `(X,Y)` coordinates relative
@@ -584,8 +584,8 @@ impl EasyCurses {
   /// scrolling region is set but scrolling is not enabled then attempts to go
   /// off the bottom will just print nothing instead. Use `set_scroll_region`
   /// to control the size of the scrolling region.
-  pub fn set_scrolling(&mut self, scrolling: bool) -> bool {
-    to_bool(self.win.scrollok(scrolling))
+  pub fn set_scrolling(&mut self, scrolling: bool) -> Option<()> {
+    to_option(self.win.scrollok(scrolling))
   }
 
   /// Sets the top and bottom margins of the scrolling region. The inputs
@@ -594,55 +594,55 @@ impl EasyCurses {
   ///
   /// See also:
   /// [setscrreg](http://pubs.opengroup.org/onlinepubs/7908799/xcurses/setscrreg.html)
-  pub fn set_scroll_region(&mut self, top: i32, bottom: i32) -> bool {
-    to_bool(self.win.setscrreg(top, bottom))
+  pub fn set_scroll_region(&mut self, top: i32, bottom: i32) -> Option<()> {
+    to_option(self.win.setscrreg(top, bottom))
   }
 
   /// Prints the given string-like value into the window by printing each
   /// individual character into the window. If there is any error encountered
   /// upon printing a character, that cancels the printing of the rest of the
   /// characters.
-  pub fn print<S: AsRef<str>>(&mut self, asref: S) -> bool {
+  pub fn print<S: AsRef<str>>(&mut self, asref: S) -> Option<()> {
     // Here we want to
     if cfg!(windows) {
       // PDCurses does an extra intermediate CString allocation, so we just
       // print out each character one at a time to avoid that.
-      asref.as_ref().chars().all(|c| self.print_char(c))
+      asref.as_ref().chars().try_for_each(|c| self.print_char(c))
     } else {
       // NCurses, it seems, doesn't do the intermediate allocation and also uses
       // a faster routine for printing a whole string at once.
-      to_bool(self.win.printw(asref.as_ref()))
+      to_option(self.win.printw(asref.as_ref()))
     }
   }
 
   /// Prints the given character into the window.
-  pub fn print_char<T: ToChtype>(&mut self, character: T) -> bool {
-    to_bool(self.win.addch(character))
+  pub fn print_char<T: ToChtype>(&mut self, character: T) -> Option<()> {
+    to_option(self.win.addch(character))
   }
 
   /// Inserts the character desired at the current location, pushing the
   /// current character at that location (and all after it on the same line)
   /// one cell to the right.
-  pub fn insert_char<T: ToChtype>(&mut self, character: T) -> bool {
-    to_bool(self.win.insch(character))
+  pub fn insert_char<T: ToChtype>(&mut self, character: T) -> Option<()> {
+    to_option(self.win.insch(character))
   }
 
   /// Deletes the character under the cursor. Characters after it on same the
   /// line are pulled left one position and the final character cell is left
   /// blank. The cursor position does not move.
-  pub fn delete_char(&mut self) -> bool {
-    to_bool(self.win.delch())
+  pub fn delete_char(&mut self) -> Option<()> {
+    to_option(self.win.delch())
   }
 
   /// Inserts a line above the current line. The bottom line is lost.
-  pub fn insert_line(&mut self) -> bool {
-    to_bool(self.win.insertln())
+  pub fn insert_line(&mut self) -> Option<()> {
+    to_option(self.win.insertln())
   }
 
   /// Deletes the line under the cursor. Lines below are moved up one line and
   /// the final line is left blank. The cursor position does not move.
-  pub fn delete_line(&mut self) -> bool {
-    to_bool(self.win.deleteln())
+  pub fn delete_line(&mut self) -> Option<()> {
+    to_option(self.win.deleteln())
   }
 
   /// For positive n, insert n lines into the specified window above the current
@@ -650,8 +650,8 @@ impl EasyCurses {
   /// (starting with the one under the cursor), and move the remaining lines up.
   /// The bottom n lines are cleared. The current cursor position remains the
   /// same.
-  pub fn bulk_insert_delete_line(&mut self, n: i32) -> bool {
-    to_bool(self.win.insdelln(n))
+  pub fn bulk_insert_delete_line(&mut self, n: i32) -> Option<()> {
+    to_option(self.win.insdelln(n))
   }
 
   /// Clears the entire screen.
@@ -662,16 +662,16 @@ impl EasyCurses {
   /// flickering effect seems to vary from machine to machine. If you intend
   /// to simply replace the whole window with new content, just overwrite the
   /// previous values without calling `clear` and things will be fine.
-  pub fn clear(&mut self) -> bool {
-    to_bool(self.win.clear())
+  pub fn clear(&mut self) -> Option<()> {
+    to_option(self.win.clear())
   }
 
   /// Refreshes the window's appearance on the screen. With some
   /// implementations you don't need to call this, the screen will refresh
   /// itself on its own. However, for portability, you should call this at the
   /// end of each draw cycle.
-  pub fn refresh(&mut self) -> bool {
-    to_bool(self.win.refresh())
+  pub fn refresh(&mut self) -> Option<()> {
+    to_option(self.win.refresh())
   }
 
   /// Plays an audible beep if possible, if not the screen is flashed. If
@@ -713,8 +713,8 @@ impl EasyCurses {
   /// Pushes an `Input` value into the input stack so that it will be returned
   /// by the next call to `get_input`. The return value is if the operation
   /// was successful.
-  pub fn un_get_input(&mut self, input: pancurses::Input) -> bool {
-    to_bool(self.win.ungetch(&input))
+  pub fn un_get_input(&mut self, input: pancurses::Input) -> Option<()> {
+    to_option(self.win.ungetch(&input))
   }
 
   /// Sets the window to use the number of lines and columns specified. If you
@@ -722,8 +722,8 @@ impl EasyCurses {
   /// attempt to match the current size of the window. This is done
   /// automatically for you when `KeyResize` comes in through the input
   /// buffer.
-  pub fn resize(&mut self, new_lines: i32, new_cols: i32) -> bool {
-    to_bool(pancurses::resize_term(new_lines, new_cols))
+  pub fn resize(&mut self, new_lines: i32, new_cols: i32) -> Option<()> {
+    to_option(pancurses::resize_term(new_lines, new_cols))
   }
 }
 
